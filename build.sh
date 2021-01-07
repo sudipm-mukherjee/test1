@@ -127,6 +127,7 @@ elif [ "$1" == "smatchdb2" ]; then
 		tar -xjvf backup.tar.bz2
 		cp -r smatchbackup/smatch_data /smatch/.
 		cp smatchbackup/smatch_db.sqlite .
+		rm -rf smatchbackup
 		rm backup.tar.bz2
 	else
 		echo "backup.tar.bz2 not found"

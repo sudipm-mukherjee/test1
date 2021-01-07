@@ -44,6 +44,7 @@ jobs:
       before_script:
        - docker pull sudipm/smatch:arm
       script:
+        - wget -q https://gitlab.com/sudipm/smatchdb/-/raw/master/backup.tar.bz2
         - docker run -v "$PWD":/src --workdir /src sudipm/smatch:arm /bin/bash -c "./build.sh smatchdb2 defconfig"
         - mv backup.tar.bz2 $HOME/.
         - git clean -fdx || true
