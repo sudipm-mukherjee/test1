@@ -43,18 +43,15 @@ jobs:
         - $HOME/backup
       before_script:
        - docker pull sudipm/smatch:arm
-       - mkdir -p $HOME/backup
       script:
-        - oldpwd=`pwd`
+        - wget -q https://gitlab.com/sudipm/smatchdb/-/raw/master/backup.tar.bz2
+        - docker run -v "$PWD":/src --workdir /src sudipm/smatch:arm /bin/bash -c "./build.sh smatchdb2 defconfig"
+        - mv backup.tar.bz2 $HOME/.
+        - git clean -fdx || true
         - cd $HOME
         - travis_retry git clone --single-branch -b master https://oauth2:$GL@gitlab.com/sudipm/smatchdb.git
-        - cd $oldpwd
-        - if [ -f $HOME/backup/version ]; then cat $HOME/backup/version; fi
-        - mv $HOME/smatchdb/backup.tar.bz2 .  || true
-        - docker run -v "$PWD":/src --workdir /src sudipm/smatch:arm /bin/bash -c "./build.sh smatchdb2 defconfig"
-        - mv backup.tar.bz2 $HOME/smatchdb/.
-        - git clean -fdx || true
-        - cd $HOME/smatchdb
+        - cd smatchdb
+        - mv $HOME/backup.tar.bz2 .
         - git add -f backup.tar.bz2
         - git commit -s -m "smatch db update"
         - travis_retry git push -v origin
