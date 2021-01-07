@@ -13,45 +13,34 @@ env:
 
 stages:
   - build1
-  - build2
   - report
   - builddb
 
 jobs:
   include:
     - stage: build1
+      name: smatch
+      arch: arm64
       before_script:
-       - docker pull sudipm/clang:report
-      script:
-        - oldpwd=`pwd`
-        - cd $HOME
-        - travis_retry git clone --single-branch -b clang https://oauth2:$GL@gitlab.com/sudipm/smatchdb.git
-        - cd $oldpwd
-        - docker run -v "$PWD":/src --workdir /src sudipm/clang:report /bin/bash -c "./build.sh clang olddefconfig"
-        - cp clang_log.tar.bz2 $HOME/smatchdb/backup.tar.bz2
-        - cd $HOME/smatchdb
-        - git add -f backup.tar.bz2
-        - git commit -s -m "clang update"
-        - travis_retry git push -v origin clang
-
-    - stage: build1
-      before_script:
-       - docker pull sudipm/smatch:latest
+       - docker pull sudipm/smatch:arm
       script:
         - oldpwd=`pwd`
         - cd $HOME
         - travis_retry git clone --single-branch -b smatch https://oauth2:$GL@gitlab.com/sudipm/smatchdb.git
         - cd $oldpwd
         - wget https://gitlab.com/sudipm/smatchdb/-/raw/master/backup.tar.bz2
-        - docker run -v "$PWD":/src --workdir /src sudipm/smatch:latest /bin/bash -c "./build.sh smatch olddefconfig"
+        - docker run -v "$PWD":/src --workdir /src sudipm/smatch:arm /bin/bash -c "./build.sh smatch olddefconfig"
         - cp smatch_warns.txt.tar.bz2 $HOME/smatchdb/backup.tar.bz2
         - git clean -fdx || true
         - cd $HOME/smatchdb
+        - git config user.email "sudipm.mukherjee@gmail.com"
+        - git config user.name "Travis CI"
         - git add -f backup.tar.bz2
         - git commit -s -m "clang update"
         - travis_retry git push -v origin smatch
 
     - stage: build1
+      name: cocci1
       before_install:
        - docker pull sudipm/cocci:bionic
       script:
@@ -68,6 +57,7 @@ jobs:
         - travis_retry git push -v origin cocci1
 
     - stage: build1
+      name: cocci2
       before_install:
        - docker pull sudipm/cocci:bionic
       script:
@@ -84,6 +74,7 @@ jobs:
         - travis_retry git push -v origin cocci2
 
     - stage: build1
+      name: cocci3
       before_install:
        - docker pull sudipm/cocci:bionic
       script:
@@ -100,13 +91,19 @@ jobs:
         - travis_retry git push -v origin cocci3
 
     - stage: builddb
+      name: smatchdb1
+      cache:
+        directories:
+        - $HOME/backup
       before_script:
        - docker pull sudipm/smatch:latest
+       - mkdir -p $HOME/backup
       script:
         - oldpwd=`pwd`
         - cd $HOME
         - travis_retry git clone --single-branch -b master https://oauth2:$GL@gitlab.com/sudipm/smatchdb.git
         - cd $oldpwd
+        - if [ -f $HOME/backup/version ]; then cat $HOME/backup/version; fi
         - cp $HOME/smatchdb/backup.tar.bz2 .  || true
         - docker run -v "$PWD":/src --workdir /src sudipm/smatch:latest /bin/bash -c "./build.sh smatchdb olddefconfig"
         - mv backup.tar.bz2 $HOME/smatchdb/.
@@ -116,7 +113,16 @@ jobs:
         - git commit -s -m "smatch db update"
         - travis_retry git push -v origin
 
+    - stage: builddb
+      name: smatchdb2
+      arch: arm64
+      before_script:
+       - docker pull sudipm/smatch:arm
+      script:
+        - travis_wait 30 docker run -v "$PWD":/src --workdir /src sudipm/smatch:arm /bin/bash -c "./build.sh smatchdb2 defconfig"
+
     - stage: build1
+      name: cocci4
       before_install:
        - docker pull sudipm/cocci:bionic
       script:
@@ -133,6 +139,7 @@ jobs:
         - travis_retry git push -v origin cocci4
 
     - stage: build1
+      name: cocci5
       before_install:
        - docker pull sudipm/cocci:bionic
       script:
@@ -149,6 +156,7 @@ jobs:
         - travis_retry git push -v origin cocci5
 
     - stage: report
+      name: report
       before_script:
        - docker pull sudipm/clang:smatch
        - mkdir -p ~/backup/cache
@@ -157,19 +165,19 @@ jobs:
         - cd $HOME
         - travis_retry git clone https://oauth2:$GL@gitlab.com/sudipm/smatchdb.git
         - cd smatchdb
-        - git checkout clang
+        - git checkout -f clang
         - cp  backup.tar.bz2 ~/backup/cache/clang_log.tar.bz2
-        - git checkout smatch
+        - git checkout -f smatch
         - cp backup.tar.bz2 ~/backup/cache/smatch_warns.txt.tar.bz2
-        - git checkout cocci1
+        - git checkout -f cocci1
         - cp backup.tar.bz2 ~/backup/cache/cocci_err1.tar.bz2
-        - git checkout cocci2
+        - git checkout -f cocci2
         - cp backup.tar.bz2 ~/backup/cache/cocci_err2.tar.bz2
-        - git checkout cocci3
+        - git checkout -f cocci3
         - cp backup.tar.bz2 ~/backup/cache/cocci_err3.tar.bz2
-        - git checkout cocci4
+        - git checkout -f cocci4
         - cp backup.tar.bz2 ~/backup/cache/cocci_err4.tar.bz2
-        - git checkout cocci5
+        - git checkout -f cocci5
         - cp backup.tar.bz2 ~/backup/cache/cocci_err5.tar.bz2
         - cd $oldpwd
         - cp ~/backup/cache/* .
@@ -191,7 +199,8 @@ jobs:
         - git commit -s -m "Add report for $NEXT"
         - travis_retry git push -v origin
 
-    - stage: build2
+    - stage: build1
+      name: clangreport
       before_script:
        - docker pull sudipm/clang:report
       script:
@@ -199,9 +208,7 @@ jobs:
         - cd $HOME
         - travis_retry git clone --single-branch -b clang https://oauth2:$GL@gitlab.com/sudipm/smatchdb.git
         - cd $oldpwd
-        - wget https://gitlab.com/sudipm/smatchdb/-/raw/clang_build/backup.tar.bz2
-        - mv backup.tar.bz2 build.tar.bz2
-        - docker run -v "$PWD":/src --workdir /src sudipm/clang:report /bin/bash -c "./build.sh clangbuild"
+        - docker run -v "$PWD":/src --workdir /src sudipm/clang:report /bin/bash -c "./build.sh clang defconfig"
         - cp clang_log.tar.bz2 $HOME/smatchdb/backup.tar.bz2
         - cd $HOME/smatchdb
         - git add -f backup.tar.bz2
